@@ -141,3 +141,22 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python virtual environments
+.venv/
+**/.venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+
+# Local Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated ML model artifact (regenerate with ml-service/train_model.py)
+data/reports/synthetic_random_forest.joblib
+
+# Local Prisma schema backup
+backend/prisma/schema.prisma.backup

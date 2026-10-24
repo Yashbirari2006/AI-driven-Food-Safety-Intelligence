@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,13 +8,179 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole @default(CITIZEN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  Int         @id @default(autoincrement())
+  name                String
+  email               String      @unique
+  password            String
+  role                UserRole    @default(CITIZEN)
+  complaints          Complaint[]
+  assignedInspections Inspection[] @relation("InspectionAssignee")
+  auditLogs           AuditLog[]   @relation("AuditActor")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model Complaint {
+  id                Int             @id @default(autoincrement())
+  citizenId         Int
+  establishmentId   Int?
+  title             String
+  description       String
+  foodType          String
+  establishmentName String
+  location          String
+  incidentDate      DateTime
+  status            ComplaintStatus @default(SUBMITTED)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  citizen User @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  establishment   Establishment?   @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  images          ComplaintImage[]
+  riskAssessments RiskAssessment[]
+  inspections     Inspection[]
+  slaRecords      SLARecord[]
+  auditLogs       AuditLog[]
+
+  @@index([citizenId])
+  @@index([status])
+  @@index([establishmentId])
+  @@index([createdAt])
+}
+
+model Establishment {
+  id             Int      @id @default(autoincrement())
+  name           String
+  establishmentType String
+  address        String
+  district       String?
+  licenseNumber  String?  @unique
+  complaints     Complaint[]
+  records        EstablishmentRecord[]
+  inspections    Inspection[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@index([district])
+}
+
+model ComplaintImage {
+  id               Int                @id @default(autoincrement())
+  complaintId      Int
+  storageKey       String             @unique
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  processingStatus ImageProcessingStatus @default(PENDING)
+  uploadedAt       DateTime           @default(now())
+
+  complaint      Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  imageAnalyses  ImageAnalysis[]
+
+  @@index([complaintId])
+}
+
+model ImageAnalysis {
+  id              Int      @id @default(autoincrement())
+  imageId         Int
+  modelVersion    String
+  status          AnalysisStatus
+  findings        Json?
+  uncertaintyNote String?
+  analyzedAt      DateTime @default(now())
+
+  image ComplaintImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([imageId])
+}
+
+model EstablishmentRecord {
+  id               Int      @id @default(autoincrement())
+  establishmentId  Int
+  recordType       String
+  description      String
+  sourceType       String
+  sourceReference  String?
+  verified         Boolean  @default(false)
+  occurredAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
+
+  @@index([establishmentId, occurredAt])
+  @@index([verified])
+}
+
+model RiskAssessment {
+  id                    Int                @id @default(autoincrement())
+  complaintId           Int
+  riskScore             Float?
+  riskLevel             RiskLevel?
+  status                AssessmentStatus   @default(PROVISIONAL)
+  evidenceQuality       EvidenceQuality    @default(INSUFFICIENT)
+  contributingFactors  Json?
+  evidenceSnapshot     Json?
+  modelVersions        Json?
+  humanReviewRequired  Boolean            @default(true)
+  assessedAt           DateTime           @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([complaintId, assessedAt])
+  @@index([riskLevel, assessedAt])
+}
+
+model Inspection {
+  id              Int              @id @default(autoincrement())
+  complaintId     Int
+  establishmentId Int?
+  assignedOfficerId Int?
+  status          InspectionStatus @default(ASSIGNED)
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  findings        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  complaint     Complaint      @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  assignedOfficer User?        @relation("InspectionAssignee", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+
+  @@index([complaintId])
+  @@index([assignedOfficerId, status])
+}
+
+model SLARecord {
+  id           Int       @id @default(autoincrement())
+  complaintId  Int
+  deadlineAt   DateTime
+  completedAt  DateTime?
+  escalatedAt  DateTime?
+  policyVersion String
+  createdAt    DateTime  @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([deadlineAt, completedAt])
+  @@index([complaintId])
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  actorId     Int?
+  complaintId Int?
+  action      String
+  entityType  String
+  entityId    String
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  actor     User?      @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  complaint Complaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+
+  @@index([complaintId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 enum UserRole {
@@ -21,4 +188,52 @@ enum UserRole {
   FOOD_SAFETY_OFFICER
   LAB_OFFICER
   SUPERVISOR
+}
+
+enum ComplaintStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  INSPECTION_ASSIGNED
+  INSPECTION_COMPLETED
+  RESOLVED
+  REJECTED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AssessmentStatus {
+  PROVISIONAL
+  COMPLETED
+  INSUFFICIENT_EVIDENCE
+  FAILED
+}
+
+enum EvidenceQuality {
+  INSUFFICIENT
+  LIMITED
+  MODERATE
+  STRONG
+}
+
+enum ImageProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AnalysisStatus {
+  COMPLETED
+  FAILED
+}
+
+enum InspectionStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

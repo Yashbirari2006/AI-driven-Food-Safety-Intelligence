@@ -160,3 +160,17 @@ data/reports/synthetic_random_forest.joblib
 
 # Local Prisma schema backup
 backend/prisma/schema.prisma.backup
+
+# Local database backups and uploaded complaint files
+/backups/
+/backend/uploads/
+
+# Local editor configuration
+/.vscode/
+
+# Temporary and backup files
+*.bak
+*.backup
+/frontend/app_part.txt
+
+# Local ML model artifact (large binary)

@@ -1,0 +1,5 @@
+Dataset: fully synthetic, rule-generated labels.
+Evaluation: held-out random test split from the same synthetic generator.
+These metrics measure agreement with synthetic labels only.
+They do not establish real-world food-safety predictive validity.
+The saved model is an experimental artifact, not a deployment-ready system.

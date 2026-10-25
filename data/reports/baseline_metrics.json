@@ -1,0 +1,78 @@
+{
+  "majority_baseline": {
+    "accuracy": 0.638,
+    "balanced_accuracy": 0.3333333333333333,
+    "macro_f1": 0.25966625966625967,
+    "classification_report": {
+      "Low": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 607.0
+      },
+      "Medium": {
+        "precision": 0.638,
+        "recall": 1.0,
+        "f1-score": 0.778998778998779,
+        "support": 1914.0
+      },
+      "High": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 479.0
+      },
+      "accuracy": 0.638,
+      "macro avg": {
+        "precision": 0.21266666666666667,
+        "recall": 0.3333333333333333,
+        "f1-score": 0.25966625966625967,
+        "support": 3000.0
+      },
+      "weighted avg": {
+        "precision": 0.407044,
+        "recall": 0.638,
+        "f1-score": 0.49700122100122096,
+        "support": 3000.0
+      }
+    }
+  },
+  "random_forest": {
+    "accuracy": 0.9653333333333334,
+    "balanced_accuracy": 0.9712248183386204,
+    "macro_f1": 0.957867211949988,
+    "classification_report": {
+      "Low": {
+        "precision": 0.9572784810126582,
+        "recall": 0.9967051070840197,
+        "f1-score": 0.976594027441485,
+        "support": 607.0
+      },
+      "Medium": {
+        "precision": 0.9886609071274298,
+        "recall": 0.9566353187042842,
+        "f1-score": 0.9723844928305895,
+        "support": 1914.0
+      },
+      "High": {
+        "precision": 0.8914728682170543,
+        "recall": 0.9603340292275574,
+        "f1-score": 0.9246231155778895,
+        "support": 479.0
+      },
+      "accuracy": 0.9653333333333334,
+      "macro avg": {
+        "precision": 0.9458040854523807,
+        "recall": 0.9712248183386204,
+        "f1-score": 0.957867211949988,
+        "support": 3000.0
+      },
+      "weighted avg": {
+        "precision": 0.9667935060308511,
+        "recall": 0.9653333333333334,
+        "f1-score": 0.9656103220988463,
+        "support": 3000.0
+      }
+    }
+  }
+}

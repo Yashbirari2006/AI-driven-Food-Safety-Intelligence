@@ -5,6 +5,7 @@ import {
   createComplaint,
   getMyComplaints,
   getOfficerComplaintQueue,
+  markComplaintUnderReview,
 } from "../controllers/complaintController";
 
 import {
@@ -36,6 +37,12 @@ router.get(
   authenticateToken,
   authorizeRoles("FOOD_SAFETY_OFFICER"),
   getOfficerComplaintQueue
+);
+router.patch(
+  "/officer/:id/status",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER"),
+  markComplaintUnderReview
 );
 
 export default router;

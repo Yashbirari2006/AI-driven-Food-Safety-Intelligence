@@ -1,0 +1,14 @@
+{
+  "total_records": 15000,
+  "train_records": 12000,
+  "test_records": 3000,
+  "missing_cells": 0,
+  "duplicate_rows": 0,
+  "duplicate_ids": 0,
+  "train_test_id_overlap": 0,
+  "risk_counts": {
+    "Medium": 9569,
+    "Low": 3038,
+    "High": 2393
+  }
+}

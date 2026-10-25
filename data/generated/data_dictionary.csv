@@ -1,0 +1,16 @@
+column,description,type_or_usage
+record_id,Synthetic row identifier,Identifier; exclude from model features
+district,Synthetic Maharashtra district assignment,Categorical
+area_type,"Urban, semi-urban, or rural setting",Categorical
+establishment_type,Illustrative food-business category,Categorical
+hygiene_score,Synthetic hygiene score from 1 (poor) to 5 (good),Ordinal
+temperature_control_deviation,Simulated temperature-control issue; 1=yes,Binary
+unsafe_water_indicator,Simulated unsafe-water indicator; 1=yes,Binary
+pest_signs,Simulated pest indicator; 1=yes,Binary
+cross_contamination_indicator,Simulated cross-contamination indicator; 1=yes,Binary
+expired_food_indicator,Simulated expired-food indicator; 1=yes,Binary
+complaints_30d,Synthetic complaint count over 30 days,Count
+illness_reports_7d,Synthetic illness-report count over 7 days,Count
+days_since_last_inspection,Synthetic number of days since inspection,Integer
+license_status,Simulated licence status,Categorical
+risk_level,"Rule-generated synthetic target: Low, Medium, or High",Target; not real-world ground truth

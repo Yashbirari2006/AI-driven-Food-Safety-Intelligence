@@ -1,0 +1,12 @@
+{
+  "dataset_type": "Fully synthetic; not official inspection data",
+  "records": 15000,
+  "random_seed": 42,
+  "evaluation_split": "80% train / 20% test; stratified random split",
+  "target": "risk_level",
+  "label_method": "Illustrative documented rule-based score",
+  "official_fssai_thresholds": false,
+  "real_world_predictive_validity_established": false,
+  "dhule_sampling": "Oversampled intentionally for project scenarios",
+  "caution": "Test performance measures agreement with synthetic rules, not real-world food-safety prediction accuracy."
+}

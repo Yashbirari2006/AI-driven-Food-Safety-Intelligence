@@ -41,6 +41,7 @@ model Complaint {
   inspections     Inspection[]
   slaRecords      SLARecord[]
   auditLogs       AuditLog[]
+  triages         ComplaintTriage[]
 
   @@index([citizenId])
   @@index([status])
@@ -111,7 +112,21 @@ model EstablishmentRecord {
   @@index([establishmentId, occurredAt])
   @@index([verified])
 }
+model ComplaintTriage {
+  id             Int                  @id @default(autoincrement())
+  complaintId    Int
+  urgency        TriageUrgency
+  actionability  TriageActionability
+  reasons        Json
+  inputSnapshot  Json
+  rulesVersion   String
+  assessedAt     DateTime             @default(now())
 
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([complaintId, assessedAt])
+  @@index([urgency, assessedAt])
+}
 model RiskAssessment {
   id                    Int                @id @default(autoincrement())
   complaintId           Int
@@ -236,4 +251,15 @@ enum InspectionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+enum TriageUrgency {
+  URGENT
+  HIGH
+  NORMAL
+}
+
+enum TriageActionability {
+  ACTIONABLE
+  NEEDS_INFORMATION
+  REVIEW_REQUIRED
 }

@@ -189,7 +189,25 @@ export const predictRisk = async (req: AuthRequest, res: Response) => {
       Medium: probabilities.Medium as number,
       High: probabilities.High as number,
     };
+    const probabilityTotal =
+  (probabilities.Low as number) +
+  (probabilities.Medium as number) +
+  (probabilities.High as number);
 
+if (Math.abs(probabilityTotal - 1) > 0.01) {
+  return res.status(502).json({
+    message: "The ML service returned probabilities that do not sum to 1",
+  });
+}
+
+// Experimental model-derived risk index (0–100).
+const riskScore = Number(
+  (
+    100 *
+    ((probabilities.High as number) +
+      0.5 * (probabilities.Medium as number))
+  ).toFixed(2),
+);
     const safeFeatures = features as Prisma.InputJsonObject;
 
     const riskLevel = prediction.predicted_risk.toUpperCase() as
@@ -200,6 +218,7 @@ export const predictRisk = async (req: AuthRequest, res: Response) => {
     const assessment = await prisma.riskAssessment.create({
       data: {
         complaintId,
+        riskScore,
         riskLevel,
         status: "PROVISIONAL",
         evidenceQuality: "INSUFFICIENT",
@@ -232,6 +251,8 @@ export const predictRisk = async (req: AuthRequest, res: Response) => {
 
       prediction: {
         predictedRisk: prediction.predicted_risk,
+        riskScore,
+        riskScoreType: "experimental_model_derived_index",
         classProbabilities: safeProbabilities,
         advisoryOnly: true,
         realWorldValidated: false,

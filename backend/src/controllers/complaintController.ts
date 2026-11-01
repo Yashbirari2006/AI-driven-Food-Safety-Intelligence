@@ -8,6 +8,8 @@ import prisma from "../lib/prisma";
 import { writeComplaintAudit } from "../utils/auditLog";
 import { evaluateComplaintTriage } from "../services/triageService";
 import { Prisma } from "@prisma/client";
+import { findSimilarComplaints } from "../services/duplicateDetectionService";
+
 
 interface AuthRequest extends Request {
   user?: {
@@ -194,6 +196,48 @@ export const createComplaint = async (
         message: "A valid incidentDate is required",
       });
     }
+    // Detect potentially similar complaints before submission.
+    // This check is advisory and does not block legitimate reports.
+    const existingComplaints = await prisma.complaint.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 500,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        foodType: true,
+        establishmentName: true,
+        location: true,
+        incidentDate: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    const duplicateMatches = findSimilarComplaints(
+      {
+        title: title.trim(),
+        description: description.trim(),
+        foodType: foodType.trim(),
+        establishmentName: establishmentName.trim(),
+        location: location.trim(),
+      },
+      existingComplaints
+    );
+
+    const potentialDuplicates = duplicateMatches.map((match) => ({
+      referenceId: formatComplaintReference(
+        match.complaintId,
+        match.createdAt
+      ),
+      status: match.status,
+      similarityScore: match.similarity,
+      reasons: match.reasons,
+      incidentDate: match.incidentDate,
+      createdAt: match.createdAt,
+    }));
 
     let photos: SavedPhoto[];
 
@@ -292,8 +336,9 @@ export const createComplaint = async (
       });
     });
 
-    return res.status(201).json({
+        return res.status(201).json({
       message: "Complaint submitted successfully",
+      potentialDuplicates,
       complaint: {
         ...complaint,
         referenceId: formatComplaintReference(

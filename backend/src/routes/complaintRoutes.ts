@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -13,13 +12,21 @@ import {
 } from "../controllers/complaintController";
 
 import {
+  createComplaintOutcomeAssessment,
+  attachComplaintOutcomeEvidence,
+  reviewComplaintOutcomeEvidence,
+  finalizeComplaintOutcomeAssessment,
+  getComplaintOutcomeHistory,
+} from "../controllers/complaintOutcomeController";
+
+import {
   authenticateToken,
   authorizeRoles,
 } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// Citizen: submit a complaint
+// Citizen complaint workflow
 router.post(
   "/",
   authenticateToken,
@@ -27,7 +34,6 @@ router.post(
   createComplaint
 );
 
-// Citizen: view their own complaints
 router.get(
   "/my",
   authenticateToken,
@@ -35,7 +41,7 @@ router.get(
   getMyComplaints
 );
 
-// Food safety officer: view all complaints for review
+// Officer complaint workflow
 router.get(
   "/officer/queue",
   authenticateToken,
@@ -43,7 +49,6 @@ router.get(
   getOfficerComplaintQueue
 );
 
-// Food safety officer: mark a complaint under review
 router.patch(
   "/officer/:id/status",
   authenticateToken,
@@ -51,7 +56,6 @@ router.patch(
   markComplaintUnderReview
 );
 
-// Officer-only establishment registry
 router.get(
   "/officer/establishments",
   authenticateToken,
@@ -66,7 +70,6 @@ router.post(
   createOfficerEstablishment
 );
 
-// Explicitly link a complaint to an establishment
 router.patch(
   "/officer/:id/establishment",
   authenticateToken,
@@ -74,12 +77,47 @@ router.patch(
   linkComplaintEstablishment
 );
 
-// View establishment complaint history and verified records
 router.get(
   "/officer/establishments/:establishmentId/history",
   authenticateToken,
   authorizeRoles("FOOD_SAFETY_OFFICER"),
   getEstablishmentHistory
+);
+
+// Complaint outcome assessment workflow
+router.post(
+  "/officer/:id/outcomes",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER", "SUPERVISOR"),
+  createComplaintOutcomeAssessment
+);
+
+router.get(
+  "/officer/:id/outcomes",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER", "SUPERVISOR"),
+  getComplaintOutcomeHistory
+);
+
+router.post(
+  "/officer/outcomes/:assessmentId/evidence",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER", "SUPERVISOR"),
+  attachComplaintOutcomeEvidence
+);
+
+router.patch(
+  "/officer/outcomes/evidence/:evidenceId/review",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER", "SUPERVISOR"),
+  reviewComplaintOutcomeEvidence
+);
+
+router.patch(
+  "/officer/outcomes/:assessmentId/finalize",
+  authenticateToken,
+  authorizeRoles("FOOD_SAFETY_OFFICER", "SUPERVISOR"),
+  finalizeComplaintOutcomeAssessment
 );
 
 export default router;

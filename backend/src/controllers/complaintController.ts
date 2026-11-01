@@ -9,6 +9,7 @@ import { writeComplaintAudit } from "../utils/auditLog";
 import { evaluateComplaintTriage } from "../services/triageService";
 import { Prisma } from "@prisma/client";
 import { findSimilarComplaints } from "../services/duplicateDetectionService";
+import { buildComplaintMlFeatureVector } from "../services/complaintMlFeatureService";
 
 
 interface AuthRequest extends Request {
@@ -310,6 +311,28 @@ export const createComplaint = async (
           })),
         });
       }
+      // Capture the submission-time complaint ML feature snapshot.
+// This is a feature record only; it does not generate a prediction
+// or establish whether the complaint is substantiated.
+const featureVector = await buildComplaintMlFeatureVector(
+  createdComplaint.id,
+  tx
+);
+
+const featureSnapshot = await tx.complaintMlFeatureSnapshot.create({
+  data: {
+    complaintId: createdComplaint.id,
+    featureVersion: featureVector.featureVersion,
+    features: featureVector.features as Prisma.InputJsonValue,
+    missingness: featureVector.missingness as Prisma.InputJsonValue,
+    interpretation: featureVector.interpretation as Prisma.InputJsonValue,
+    provenance: {
+      ...featureVector.provenance,
+      snapshotPolicy: "SUBMISSION_TIME",
+      snapshotImmutableByApplication: true,
+    } as Prisma.InputJsonValue,
+  },
+});
 
       await writeComplaintAudit(tx, {
         actorId: req.user!.userId,
@@ -322,6 +345,9 @@ export const createComplaint = async (
           triageUrgency: savedTriage.urgency,
           triageActionability: savedTriage.actionability,
           triageRulesVersion: savedTriage.rulesVersion,
+          mlFeatureSnapshotId: featureSnapshot.id,
+mlFeatureVersion: featureSnapshot.featureVersion,
+mlFeatureSnapshotPolicy: "SUBMISSION_TIME",
         },
       });
 

@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,16 +7,19 @@ datasource db {
 }
 
 model User {
-  id                  Int         @id @default(autoincrement())
-  name                String
-  email               String      @unique
-  password            String
-  role                UserRole    @default(CITIZEN)
-  complaints          Complaint[]
-  assignedInspections Inspection[] @relation("InspectionAssignee")
-  auditLogs           AuditLog[]   @relation("AuditActor")
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  id                          Int                          @id @default(autoincrement())
+  name                        String
+  email                       String                       @unique
+  password                    String
+  role                        UserRole                     @default(CITIZEN)
+  complaints                  Complaint[]
+  assignedInspections         Inspection[]                 @relation("InspectionAssignee")
+  auditLogs                   AuditLog[]                   @relation("AuditActor")
+  outcomeAssessmentsCreated   ComplaintOutcomeAssessment[] @relation("OutcomeAssessmentRecorder")
+  outcomeAssessmentsFinalized ComplaintOutcomeAssessment[] @relation("OutcomeAssessmentFinalizer")
+  outcomeEvidenceVerified     ComplaintOutcomeEvidence[]   @relation("OutcomeEvidenceVerifier")
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
 }
 
 model Complaint {
@@ -34,14 +36,16 @@ model Complaint {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  citizen User @relation(fields: [citizenId], references: [id], onDelete: Cascade)
-  establishment   Establishment?   @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
-  images          ComplaintImage[]
-  riskAssessments RiskAssessment[]
-  inspections     Inspection[]
-  slaRecords      SLARecord[]
-  auditLogs       AuditLog[]
-  triages         ComplaintTriage[]
+  citizen            User                         @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  establishment      Establishment?               @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  images             ComplaintImage[]
+  riskAssessments    RiskAssessment[]
+  inspections        Inspection[]
+  slaRecords         SLARecord[]
+  auditLogs          AuditLog[]
+  triages            ComplaintTriage[]
+  outcomeAssessments ComplaintOutcomeAssessment[]
+  mlFeatureSnapshot  ComplaintMlFeatureSnapshot?
 
   @@index([citizenId])
   @@index([status])
@@ -49,47 +53,62 @@ model Complaint {
   @@index([createdAt])
 }
 
-model Establishment {
+model ComplaintMlFeatureSnapshot {
   id             Int      @id @default(autoincrement())
-  name           String
+  complaintId    Int      @unique
+  featureVersion String
+  features       Json
+  missingness    Json
+  interpretation Json
+  provenance     Json
+  capturedAt     DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([featureVersion, capturedAt])
+}
+
+model Establishment {
+  id                Int                   @id @default(autoincrement())
+  name              String
   establishmentType String
-  address        String
-  district       String?
-  licenseNumber  String?  @unique
-  complaints     Complaint[]
-  records        EstablishmentRecord[]
-  inspections    Inspection[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  address           String
+  district          String?
+  licenseNumber     String?               @unique
+  complaints        Complaint[]
+  records           EstablishmentRecord[]
+  inspections       Inspection[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([name])
   @@index([district])
 }
 
 model ComplaintImage {
-  id               Int                @id @default(autoincrement())
+  id               Int                   @id @default(autoincrement())
   complaintId      Int
-  storageKey       String             @unique
+  storageKey       String                @unique
   originalFilename String
   mimeType         String
   sizeBytes        Int
   processingStatus ImageProcessingStatus @default(PENDING)
-  uploadedAt       DateTime           @default(now())
+  uploadedAt       DateTime              @default(now())
 
-  complaint      Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
-  imageAnalyses  ImageAnalysis[]
+  complaint     Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  imageAnalyses ImageAnalysis[]
 
   @@index([complaintId])
 }
 
 model ImageAnalysis {
-  id              Int      @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   imageId         Int
   modelVersion    String
   status          AnalysisStatus
   findings        Json?
   uncertaintyNote String?
-  analyzedAt      DateTime @default(now())
+  analyzedAt      DateTime       @default(now())
 
   image ComplaintImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
 
@@ -97,48 +116,50 @@ model ImageAnalysis {
 }
 
 model EstablishmentRecord {
-  id               Int      @id @default(autoincrement())
-  establishmentId  Int
-  recordType       String
-  description      String
-  sourceType       String
-  sourceReference  String?
-  verified         Boolean  @default(false)
-  occurredAt       DateTime?
-  createdAt        DateTime @default(now())
+  id              Int       @id @default(autoincrement())
+  establishmentId Int
+  recordType      String
+  description     String
+  sourceType      String
+  sourceReference String?
+  verified        Boolean   @default(false)
+  occurredAt      DateTime?
+  createdAt       DateTime  @default(now())
 
   establishment Establishment @relation(fields: [establishmentId], references: [id], onDelete: Restrict)
 
   @@index([establishmentId, occurredAt])
   @@index([verified])
 }
+
 model ComplaintTriage {
-  id             Int                  @id @default(autoincrement())
-  complaintId    Int
-  urgency        TriageUrgency
-  actionability  TriageActionability
-  reasons        Json
-  inputSnapshot  Json
-  rulesVersion   String
-  assessedAt     DateTime             @default(now())
+  id            Int                 @id @default(autoincrement())
+  complaintId   Int
+  urgency       TriageUrgency
+  actionability TriageActionability
+  reasons       Json
+  inputSnapshot Json
+  rulesVersion  String
+  assessedAt    DateTime            @default(now())
 
   complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
 
   @@index([complaintId, assessedAt])
   @@index([urgency, assessedAt])
 }
+
 model RiskAssessment {
-  id                    Int                @id @default(autoincrement())
-  complaintId           Int
-  riskScore             Float?
-  riskLevel             RiskLevel?
-  status                AssessmentStatus   @default(PROVISIONAL)
-  evidenceQuality       EvidenceQuality    @default(INSUFFICIENT)
-  contributingFactors  Json?
-  evidenceSnapshot     Json?
-  modelVersions        Json?
-  humanReviewRequired  Boolean            @default(true)
-  assessedAt           DateTime           @default(now())
+  id                  Int              @id @default(autoincrement())
+  complaintId         Int
+  riskScore           Float?
+  riskLevel           RiskLevel?
+  status              AssessmentStatus @default(PROVISIONAL)
+  evidenceQuality     EvidenceQuality  @default(INSUFFICIENT)
+  contributingFactors Json?
+  evidenceSnapshot    Json?
+  modelVersions       Json?
+  humanReviewRequired Boolean          @default(true)
+  assessedAt          DateTime         @default(now())
 
   complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
 
@@ -147,33 +168,33 @@ model RiskAssessment {
 }
 
 model Inspection {
-  id              Int              @id @default(autoincrement())
-  complaintId     Int
-  establishmentId Int?
+  id                Int              @id @default(autoincrement())
+  complaintId       Int
+  establishmentId   Int?
   assignedOfficerId Int?
-  status          InspectionStatus @default(ASSIGNED)
-  scheduledAt     DateTime?
-  completedAt     DateTime?
-  findings        String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  status            InspectionStatus @default(ASSIGNED)
+  scheduledAt       DateTime?
+  completedAt       DateTime?
+  findings          String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  complaint     Complaint      @relation(fields: [complaintId], references: [id], onDelete: Restrict)
-  establishment Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
-  assignedOfficer User?        @relation("InspectionAssignee", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  complaint       Complaint      @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  establishment   Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
+  assignedOfficer User?          @relation("InspectionAssignee", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
 
   @@index([complaintId])
   @@index([assignedOfficerId, status])
 }
 
 model SLARecord {
-  id           Int       @id @default(autoincrement())
-  complaintId  Int
-  deadlineAt   DateTime
-  completedAt  DateTime?
-  escalatedAt  DateTime?
+  id            Int       @id @default(autoincrement())
+  complaintId   Int
+  deadlineAt    DateTime
+  completedAt   DateTime?
+  escalatedAt   DateTime?
   policyVersion String
-  createdAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
 
@@ -196,6 +217,52 @@ model AuditLog {
 
   @@index([complaintId, createdAt])
   @@index([actorId, createdAt])
+}
+
+model ComplaintOutcomeAssessment {
+  id                     Int              @id @default(autoincrement())
+  complaintId            Int
+  outcome                ComplaintOutcome @default(PENDING)
+  determination          String
+  isFinal                Boolean          @default(false)
+  finalizedAt            DateTime?
+  recordedById           Int
+  finalizedById          Int?
+  labelPolicyVersion     String           @default("complaint-outcome-v1")
+  supersedesAssessmentId Int?             @unique
+  createdAt              DateTime         @default(now())
+
+  complaint    Complaint                   @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  recordedBy   User                        @relation("OutcomeAssessmentRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  finalizedBy  User?                       @relation("OutcomeAssessmentFinalizer", fields: [finalizedById], references: [id], onDelete: Restrict)
+  supersedes   ComplaintOutcomeAssessment? @relation("OutcomeAssessmentRevision", fields: [supersedesAssessmentId], references: [id], onDelete: Restrict)
+  supersededBy ComplaintOutcomeAssessment? @relation("OutcomeAssessmentRevision")
+
+  evidence ComplaintOutcomeEvidence[]
+
+  @@index([complaintId, createdAt])
+  @@index([outcome, isFinal, createdAt])
+  @@index([recordedById])
+  @@index([finalizedById])
+}
+
+model ComplaintOutcomeEvidence {
+  id                 Int                               @id @default(autoincrement())
+  assessmentId       Int
+  sourceType         OutcomeEvidenceSourceType
+  sourceReference    String
+  description        String?
+  verificationStatus OutcomeEvidenceVerificationStatus @default(PENDING)
+  verifiedById       Int?
+  verifiedAt         DateTime?
+  createdAt          DateTime                          @default(now())
+
+  assessment ComplaintOutcomeAssessment @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  verifiedBy User?                      @relation("OutcomeEvidenceVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+
+  @@index([assessmentId, verificationStatus])
+  @@index([sourceType, sourceReference])
+  @@index([verifiedById])
 }
 
 enum UserRole {
@@ -252,6 +319,7 @@ enum InspectionStatus {
   COMPLETED
   CANCELLED
 }
+
 enum TriageUrgency {
   URGENT
   HIGH
@@ -262,4 +330,24 @@ enum TriageActionability {
   ACTIONABLE
   NEEDS_INFORMATION
   REVIEW_REQUIRED
+}
+
+enum ComplaintOutcome {
+  PENDING
+  SUBSTANTIATED
+  NOT_SUBSTANTIATED
+  INCONCLUSIVE
+}
+
+enum OutcomeEvidenceSourceType {
+  INSPECTION_FINDING
+  LABORATORY_RESULT
+  VERIFIED_ESTABLISHMENT_RECORD
+  OTHER_VERIFIED_SOURCE
+}
+
+enum OutcomeEvidenceVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
 }

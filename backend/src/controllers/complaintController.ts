@@ -9,8 +9,7 @@ import { writeComplaintAudit } from "../utils/auditLog";
 import { evaluateComplaintTriage } from "../services/triageService";
 import { Prisma } from "@prisma/client";
 import { findSimilarComplaints } from "../services/duplicateDetectionService";
-import { buildComplaintMlFeatureVector } from "../services/complaintMlFeatureService";
-
+import { buildComplaintMlFeatureVectorV2 } from "../services/complaintMlFeatureServiceV2";
 
 interface AuthRequest extends Request {
   user?: {
@@ -197,6 +196,7 @@ export const createComplaint = async (
         message: "A valid incidentDate is required",
       });
     }
+
     // Detect potentially similar complaints before submission.
     // This check is advisory and does not block legitimate reports.
     const existingComplaints = await prisma.complaint.findMany({
@@ -276,6 +276,9 @@ export const createComplaint = async (
       photoCount: photos.length,
     });
 
+    // Use one timestamp for the complaint and all submitted images.
+    const submissionTime = new Date();
+
     const complaint = await prisma.$transaction(async (tx) => {
       const createdComplaint = await tx.complaint.create({
         data: {
@@ -286,6 +289,7 @@ export const createComplaint = async (
           establishmentName: establishmentName.trim(),
           location: location.trim(),
           incidentDate: parsedIncidentDate,
+          createdAt: submissionTime,
         },
       });
 
@@ -308,31 +312,33 @@ export const createComplaint = async (
             originalFilename: photo.originalFilename,
             mimeType: photo.mimeType,
             sizeBytes: photo.sizeBytes,
+            uploadedAt: submissionTime,
           })),
         });
       }
-      // Capture the submission-time complaint ML feature snapshot.
-// This is a feature record only; it does not generate a prediction
-// or establish whether the complaint is substantiated.
-const featureVector = await buildComplaintMlFeatureVector(
-  createdComplaint.id,
-  tx
-);
 
-const featureSnapshot = await tx.complaintMlFeatureSnapshot.create({
-  data: {
-    complaintId: createdComplaint.id,
-    featureVersion: featureVector.featureVersion,
-    features: featureVector.features as Prisma.InputJsonValue,
-    missingness: featureVector.missingness as Prisma.InputJsonValue,
-    interpretation: featureVector.interpretation as Prisma.InputJsonValue,
-    provenance: {
-      ...featureVector.provenance,
-      snapshotPolicy: "SUBMISSION_TIME",
-      snapshotImmutableByApplication: true,
-    } as Prisma.InputJsonValue,
-  },
-});
+      // Build the V2 submission-time feature vector.
+      // This creates features only; it does not generate predictions.
+      const featureVector = await buildComplaintMlFeatureVectorV2(
+        createdComplaint.id,
+        tx
+      );
+
+      const featureSnapshot =
+        await tx.complaintMlFeatureSnapshot.create({
+          data: {
+            complaintId: createdComplaint.id,
+            featureVersion: featureVector.featureVersion,
+            features: featureVector.features as Prisma.InputJsonValue,
+            missingness: featureVector.missingness as Prisma.InputJsonValue,
+            interpretation: featureVector.interpretation as Prisma.InputJsonValue,
+            provenance: {
+              ...featureVector.provenance,
+              snapshotPolicy: "SUBMISSION_TIME",
+              snapshotImmutableByApplication: true,
+            } as Prisma.InputJsonValue,
+          },
+        });
 
       await writeComplaintAudit(tx, {
         actorId: req.user!.userId,
@@ -346,8 +352,8 @@ const featureSnapshot = await tx.complaintMlFeatureSnapshot.create({
           triageActionability: savedTriage.actionability,
           triageRulesVersion: savedTriage.rulesVersion,
           mlFeatureSnapshotId: featureSnapshot.id,
-mlFeatureVersion: featureSnapshot.featureVersion,
-mlFeatureSnapshotPolicy: "SUBMISSION_TIME",
+          mlFeatureVersion: featureSnapshot.featureVersion,
+          mlFeatureSnapshotPolicy: "SUBMISSION_TIME",
         },
       });
 
@@ -357,12 +363,15 @@ mlFeatureSnapshotPolicy: "SUBMISSION_TIME",
         },
         include: {
           images: true,
-          triages: { orderBy: { assessedAt: "desc" }, take: 1 },
+          triages: {
+            orderBy: { assessedAt: "desc" },
+            take: 1,
+          },
         },
       });
     });
 
-        return res.status(201).json({
+    return res.status(201).json({
       message: "Complaint submitted successfully",
       potentialDuplicates,
       complaint: {
@@ -555,6 +564,7 @@ export const getOfficerComplaintQueue = async (
         new Date(b.incidentDate).getTime()
       );
     });
+
     return res.status(200).json({
       message: "Officer complaint queue retrieved successfully",
       count: queue.length,
@@ -673,7 +683,9 @@ export const markComplaintUnderReview = async (
 
 const normalizeText = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
+
   const normalized = value.trim();
+
   return normalized.length > 0 ? normalized : null;
 };
 
@@ -706,6 +718,7 @@ export const getOfficerEstablishments = async (
     });
   } catch (error) {
     console.error("List establishments error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve establishments",
     });
@@ -793,6 +806,7 @@ export const createOfficerEstablishment = async (
     }
 
     console.error("Register establishment error:", error);
+
     return res.status(500).json({
       message: "Failed to register establishment",
     });
@@ -814,7 +828,9 @@ export const linkComplaintEstablishment = async (
   const establishmentId = req.body?.establishmentId;
 
   if (!Number.isSafeInteger(complaintId) || complaintId <= 0) {
-    return res.status(400).json({ message: "Invalid complaint ID" });
+    return res.status(400).json({
+      message: "Invalid complaint ID",
+    });
   }
 
   if (
@@ -891,15 +907,22 @@ export const linkComplaintEstablishment = async (
         },
       });
 
-      return { kind: "LINKED" as const, complaint: updated };
+      return {
+        kind: "LINKED" as const,
+        complaint: updated,
+      };
     });
 
     if (result.kind === "NOT_FOUND") {
-      return res.status(404).json({ message: "Complaint not found" });
+      return res.status(404).json({
+        message: "Complaint not found",
+      });
     }
 
     if (result.kind === "ESTABLISHMENT_NOT_FOUND") {
-      return res.status(404).json({ message: "Establishment not found" });
+      return res.status(404).json({
+        message: "Establishment not found",
+      });
     }
 
     if (result.kind === "CONFLICT") {
@@ -922,6 +945,7 @@ export const linkComplaintEstablishment = async (
     });
   } catch (error) {
     console.error("Link complaint establishment error:", error);
+
     return res.status(500).json({
       message: "Failed to link complaint",
     });
@@ -1003,6 +1027,7 @@ export const getEstablishmentHistory = async (
     });
   } catch (error) {
     console.error("Get establishment history error:", error);
+
     return res.status(500).json({
       message: "Failed to retrieve establishment history",
     });

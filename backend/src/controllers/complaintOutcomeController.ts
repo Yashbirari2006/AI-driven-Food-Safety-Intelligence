@@ -839,7 +839,10 @@ export async function getComplaintOutcomeHistory(
                 select: { id: true, name: true, role: true },
               },
             },
-            orderBy: { createdAt: "asc" },
+             orderBy: [
+              { createdAt: "asc" },
+              { id: "asc" },
+            ],
           },
         },
       });

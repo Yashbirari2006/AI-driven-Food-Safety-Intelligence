@@ -12,6 +12,12 @@ type RiskAssessment = {
   advisoryOnly?: boolean
   realWorldValidated?: boolean
   dataStatus?: string
+  modelVersions?: {
+    engine?: string
+    rulesVersion?: string
+    modelType?: string
+    dataStatus?: string
+  } | null
   assessedAt: string
 }
 type TriageReason = {
@@ -901,6 +907,14 @@ export default function OfficerDashboard() {
                           </p>
                         ) : (
                           <>
+                          <p>
+  <strong>Assessment engine:</strong>{' '}
+  {complaint.latestAssessment.modelVersions?.engine === 'RULE_BASED'
+    ? 'Rule-based provisional screening'
+    : complaint.latestAssessment.modelVersions?.modelType
+      ? `Experimental ML (${complaint.latestAssessment.modelVersions.modelType})`
+      : 'Unspecified'}
+</p>
                             <p>
                               <strong>Provisional category:</strong>{' '}
                               {complaint.latestAssessment.riskLevel || 'Unavailable'}

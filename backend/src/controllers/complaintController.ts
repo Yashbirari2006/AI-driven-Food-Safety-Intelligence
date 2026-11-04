@@ -10,7 +10,12 @@ import { evaluateComplaintTriage } from "../services/triageService";
 import { Prisma } from "@prisma/client";
 import { findSimilarComplaints } from "../services/duplicateDetectionService";
 import { buildComplaintMlFeatureVectorV2 } from "../services/complaintMlFeatureServiceV2";
-
+import {
+  createComplaintMlSnapshotHash,
+} from "../services/complaintMlSnapshotIntegrityService";
+import {
+  evaluateProvisionalRiskAssessment,
+} from "../services/provisionalRiskAssessmentService";
 interface AuthRequest extends Request {
   user?: {
     userId: number;
@@ -303,6 +308,32 @@ export const createComplaint = async (
           rulesVersion: triage.inputSnapshot.rulesVersion,
         },
       });
+      // Generate a separate rule-based provisional risk assessment.
+// This is not an ML prediction and does not verify the allegations.
+const provisionalRisk = evaluateProvisionalRiskAssessment({
+  triage,
+  title: title.trim(),
+  description: description.trim(),
+  foodType: foodType.trim(),
+  photoCount: photos.length,
+});
+
+const savedRiskAssessment = await tx.riskAssessment.create({
+  data: {
+    complaintId: createdComplaint.id,
+    riskScore: provisionalRisk.riskScore,
+    riskLevel: provisionalRisk.riskLevel,
+    status: provisionalRisk.status,
+    evidenceQuality: provisionalRisk.evidenceQuality,
+    humanReviewRequired: provisionalRisk.humanReviewRequired,
+    contributingFactors:
+      provisionalRisk.contributingFactors as Prisma.InputJsonValue,
+    evidenceSnapshot:
+      provisionalRisk.evidenceSnapshot as Prisma.InputJsonValue,
+    modelVersions:
+      provisionalRisk.modelVersions as Prisma.InputJsonValue,
+  },
+});
 
       if (photos.length > 0) {
         await tx.complaintImage.createMany({
@@ -324,6 +355,21 @@ export const createComplaint = async (
         tx
       );
 
+      const snapshotProvenance = {
+        ...featureVector.provenance,
+        snapshotPolicy: "SUBMISSION_TIME",
+        snapshotImmutableByApplication: true,
+      };
+
+      const snapshotHash = createComplaintMlSnapshotHash({
+        complaintId: createdComplaint.id,
+        featureVersion: featureVector.featureVersion,
+        features: featureVector.features,
+        missingness: featureVector.missingness,
+        interpretation: featureVector.interpretation,
+        provenance: snapshotProvenance,
+      });
+
       const featureSnapshot =
         await tx.complaintMlFeatureSnapshot.create({
           data: {
@@ -332,11 +378,8 @@ export const createComplaint = async (
             features: featureVector.features as Prisma.InputJsonValue,
             missingness: featureVector.missingness as Prisma.InputJsonValue,
             interpretation: featureVector.interpretation as Prisma.InputJsonValue,
-            provenance: {
-              ...featureVector.provenance,
-              snapshotPolicy: "SUBMISSION_TIME",
-              snapshotImmutableByApplication: true,
-            } as Prisma.InputJsonValue,
+            provenance: snapshotProvenance as Prisma.InputJsonValue,
+            integrityHash: snapshotHash,
           },
         });
 
@@ -354,21 +397,32 @@ export const createComplaint = async (
           mlFeatureSnapshotId: featureSnapshot.id,
           mlFeatureVersion: featureSnapshot.featureVersion,
           mlFeatureSnapshotPolicy: "SUBMISSION_TIME",
+          riskAssessmentId: savedRiskAssessment.id,
+provisionalRiskScore: savedRiskAssessment.riskScore,
+provisionalRiskLevel: savedRiskAssessment.riskLevel,
+riskAssessmentStatus: savedRiskAssessment.status,
+riskAssessmentEngine: "RULE_BASED",
+riskAssessmentRulesVersion:
+  provisionalRisk.modelVersions.rulesVersion,
         },
       });
 
       return tx.complaint.findUniqueOrThrow({
-        where: {
-          id: createdComplaint.id,
-        },
-        include: {
-          images: true,
-          triages: {
-            orderBy: { assessedAt: "desc" },
-            take: 1,
-          },
-        },
-      });
+  where: {
+    id: createdComplaint.id,
+  },
+  include: {
+    images: true,
+    triages: {
+      orderBy: { assessedAt: "desc" },
+      take: 1,
+    },
+    riskAssessments: {
+      orderBy: { assessedAt: "desc" },
+      take: 1,
+    },
+  },
+});
     });
 
     return res.status(201).json({
@@ -569,9 +623,10 @@ export const getOfficerComplaintQueue = async (
       message: "Officer complaint queue retrieved successfully",
       count: queue.length,
       note:
-        "Queue ordering uses rule-based complaint triage first, followed by experimental ML assessment priority. " +
-        "Triage reflects reported signals, not verified findings. ML predictions are advisory only. " +
-        "Neither result authorizes enforcement; human review is required.",
+  "Queue ordering uses rule-based complaint triage first, followed by the latest recorded risk assessment priority. " +
+  "Risk assessments may be rule-based provisional screening or experimental ML predictions. " +
+  "Both are advisory, reflect unverified information, and require human review. " +
+  "Neither result authorizes enforcement.",
       complaints: queue,
     });
   } catch (error) {

@@ -53,21 +53,6 @@ model Complaint {
   @@index([createdAt])
 }
 
-model ComplaintMlFeatureSnapshot {
-  id             Int      @id @default(autoincrement())
-  complaintId    Int      @unique
-  featureVersion String
-  features       Json
-  missingness    Json
-  interpretation Json
-  provenance     Json
-  capturedAt     DateTime @default(now())
-
-  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
-
-  @@index([featureVersion, capturedAt])
-}
-
 model Establishment {
   id                Int                   @id @default(autoincrement())
   name              String
@@ -350,4 +335,20 @@ enum OutcomeEvidenceVerificationStatus {
   PENDING
   VERIFIED
   REJECTED
+}
+
+model ComplaintMlFeatureSnapshot {
+  id             Int      @id @default(autoincrement())
+  complaintId    Int      @unique
+  featureVersion String
+  features       Json
+  missingness    Json
+  interpretation Json
+  provenance     Json
+  integrityHash  String?
+  capturedAt     DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+
+  @@index([featureVersion, capturedAt])
 }

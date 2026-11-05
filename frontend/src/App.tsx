@@ -9,7 +9,6 @@ import './App.css'
 type Portal =
   | 'citizen'
   | 'officer'
-  | 'government'
   | 'laboratory'
   | 'supervisor'
 
@@ -31,11 +30,6 @@ const portals: PortalInfo[] = [
     description: 'Review complaints and manage inspections.',
   },
   {
-    id: 'government',
-    title: 'Government',
-    description: 'Access authorized oversight and administration.',
-  },
-  {
     id: 'laboratory',
     title: 'Laboratory',
     description: 'Manage samples and laboratory results.',
@@ -52,7 +46,7 @@ function App() {
   const location = useLocation()
 
   const portalMatch = location.pathname.match(
-    /^\/login\/(citizen|officer|government|laboratory|supervisor)\/?$/
+    /^\/login\/(citizen|officer|laboratory|supervisor)\/?$/
   )
 
   const selectedPortal = (
@@ -483,7 +477,7 @@ setMessage('This account does not have a supported portal.')
                   <p>
                     Staff accounts are created or approved by the
                     authorized administrator. Citizen registration
-                    cannot create an officer, government, laboratory,
+                    cannot create an officer, laboratory,
                     or supervisor account.
                   </p>
                 </div>

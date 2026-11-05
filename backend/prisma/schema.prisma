@@ -18,6 +18,8 @@ model User {
   outcomeAssessmentsCreated   ComplaintOutcomeAssessment[] @relation("OutcomeAssessmentRecorder")
   outcomeAssessmentsFinalized ComplaintOutcomeAssessment[] @relation("OutcomeAssessmentFinalizer")
   outcomeEvidenceVerified     ComplaintOutcomeEvidence[]   @relation("OutcomeEvidenceVerifier")
+  recordedMeasurements       InspectionMeasurement[]      @relation("MeasurementRecorder")
+  verifiedMeasurements       InspectionMeasurement[]      @relation("MeasurementVerifier")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
 }
@@ -167,9 +169,41 @@ model Inspection {
   complaint       Complaint      @relation(fields: [complaintId], references: [id], onDelete: Restrict)
   establishment   Establishment? @relation(fields: [establishmentId], references: [id], onDelete: SetNull)
   assignedOfficer User?          @relation("InspectionAssignee", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  measurements    InspectionMeasurement[]
 
   @@index([complaintId])
   @@index([assignedOfficerId, status])
+}
+
+model InspectionMeasurement {
+  id                 Int                          @id @default(autoincrement())
+  inspectionId       Int
+  fieldKey           InspectionMeasurementField
+  value              Json
+  unit               String?
+  method             String
+  protocolReference  String?
+  sourceReference    String?
+  observedAt         DateTime
+  recordedById       Int
+  verificationStatus InspectionMeasurementStatus  @default(PENDING)
+  verifiedById       Int?
+  verifiedAt         DateTime?
+  reviewNote         String?
+  supersedesId       Int?                         @unique
+  createdAt          DateTime                     @default(now())
+
+  inspection Inspection @relation(fields: [inspectionId], references: [id], onDelete: Restrict)
+  recordedBy User       @relation("MeasurementRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  verifiedBy User?      @relation("MeasurementVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+
+  supersedes   InspectionMeasurement? @relation("MeasurementRevision", fields: [supersedesId], references: [id], onDelete: Restrict)
+  supersededBy InspectionMeasurement? @relation("MeasurementRevision")
+
+  @@index([inspectionId, verificationStatus])
+  @@index([recordedById])
+  @@index([verifiedById])
+  @@index([fieldKey, createdAt])
 }
 
 model SLARecord {
@@ -332,6 +366,21 @@ enum OutcomeEvidenceSourceType {
 }
 
 enum OutcomeEvidenceVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum InspectionMeasurementField {
+  HYGIENE_SCORE
+  TEMPERATURE_READING
+  UNSAFE_WATER_INDICATOR
+  PEST_SIGNS
+  CROSS_CONTAMINATION_INDICATOR
+  EXPIRED_FOOD_INDICATOR
+}
+
+enum InspectionMeasurementStatus {
   PENDING
   VERIFIED
   REJECTED

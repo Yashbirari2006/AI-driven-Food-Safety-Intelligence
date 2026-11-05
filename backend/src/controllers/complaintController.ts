@@ -1,4 +1,4 @@
-﻿
+
 import { Request, Response } from "express";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile, unlink } from "fs/promises";
@@ -477,8 +477,12 @@ export const getMyComplaints = async (
         createdAt: "desc",
       },
       include: {
-        images: true,
-      },
+  images: true,
+  riskAssessments: {
+    orderBy: { assessedAt: "desc" },
+    take: 1,
+  },
+},
     });
 
     const complaintsWithImages = complaints.map((complaint) => ({
@@ -624,7 +628,7 @@ export const getOfficerComplaintQueue = async (
       count: queue.length,
       note:
   "Queue ordering uses rule-based complaint triage first, followed by the latest recorded risk assessment priority. " +
-  "Risk assessments may be rule-based provisional screening or experimental ML predictions. " +
+  "Current risk assessments use provisional rule-based screening. " +
   "Both are advisory, reflect unverified information, and require human review. " +
   "Neither result authorizes enforcement.",
       complaints: queue,

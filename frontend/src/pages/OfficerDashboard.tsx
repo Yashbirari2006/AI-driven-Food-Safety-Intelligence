@@ -9,6 +9,15 @@ type RiskAssessment = {
   status: string
   evidenceQuality: string
   humanReviewRequired: boolean
+    contributingFactors?: {
+    signals?: Array<{
+      code?: string
+      points?: number
+      description?: string
+    }>
+    limitations?: string[]
+    scoreMeaning?: string
+  } | null
   advisoryOnly?: boolean
   realWorldValidated?: boolean
   dataStatus?: string
@@ -504,6 +513,7 @@ export default function OfficerDashboard() {
 
           <button
             type="button"
+            className="officer-refresh"
             onClick={() => {
   void Promise.all([loadQueue(), loadEstablishments()])
 }}
@@ -570,13 +580,13 @@ export default function OfficerDashboard() {
             </div>
 
             <section className="officer-disclaimer">
-              <strong>Experimental AI — human review required</strong>
-              <p>
-                Model predictions use synthetic training data and have not
-                been validated for real-world food-safety decisions. A risk
-                category is not an official finding and does not authorize
-                enforcement action.
-              </p>
+              <strong>Provisional complaint screening — officer review required</strong>
+<p>
+  Risk categories are generated using preliminary rules applied
+  to reported complaint details. They are advisory only and have
+  not been validated as official food-safety determinations.
+  Every complaint requires independent human review.
+</p>
               {queueNote && <small>{queueNote}</small>}
             </section>
 
@@ -688,6 +698,126 @@ export default function OfficerDashboard() {
                           <dd>{formatDate(complaint.createdAt)}</dd>
                         </div>
                       </dl>
+<div className="officer-assessment">
+  <h4>Risk assessment overview</h4>
+
+  {!complaint.latestAssessment ? (
+    <p>No risk assessment is recorded for this complaint.</p>
+  ) : (
+    <>
+      <div className="assessment-overview">
+        <div className="assessment-score-panel">
+          <span className="assessment-label">
+            Provisional risk score
+          </span>
+
+          <div className="assessment-score-value">
+            {complaint.latestAssessment.riskScore ?? '—'}
+            <span>/100</span>
+          </div>
+
+          <div className="assessment-progress">
+            <span
+              style={{
+                width: `${Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    complaint.latestAssessment.riskScore ?? 0
+                  )
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="assessment-summary">
+          <span className="assessment-label">Risk category</span>
+
+          <span
+            className={`assessment-level assessment-level-${(
+              complaint.latestAssessment.riskLevel || 'unavailable'
+            ).toLowerCase()}`}
+          >
+            {complaint.latestAssessment.riskLevel || 'Unavailable'}
+          </span>
+
+          <p>
+            Initial screening based on the information submitted
+            in this complaint.
+          </p>
+        </div>
+      </div>
+
+      <div className="assessment-signals">
+        <h5>Contributing factors</h5>
+
+        {complaint.latestAssessment.contributingFactors?.signals?.length ? (
+          <ul className="assessment-signal-list">
+            {complaint.latestAssessment.contributingFactors.signals.map(
+              (signal, index) => (
+                <li key={`${signal.code || 'signal'}-${index}`}>
+                  <span>
+                    {signal.description || signal.code || 'Reported signal'}
+                  </span>
+
+                  {typeof signal.points === 'number' && (
+                    <strong>+{signal.points}</strong>
+                  )}
+                </li>
+              )
+            )}
+          </ul>
+        ) : (
+          <p>No contributing factors are available.</p>
+        )}
+      </div>
+
+      <div className="assessment-meta">
+        <div>
+          <span>Assessment method</span>
+          <strong>Rule-based screening</strong>
+        </div>
+
+        <div>
+          <span>Assessment status</span>
+          <strong>Provisional</strong>
+        </div>
+
+        <div>
+          <span>Evidence quality</span>
+          <strong>
+            {complaint.latestAssessment.evidenceQuality === 'INSUFFICIENT'
+              ? 'Limited information'
+              : complaint.latestAssessment.evidenceQuality}
+          </strong>
+        </div>
+
+        <div>
+          <span>Human review</span>
+          <strong>
+            {complaint.latestAssessment.humanReviewRequired
+              ? 'Required'
+              : 'Not indicated'}
+          </strong>
+        </div>
+
+        <div>
+          <span>Recorded</span>
+          <strong>
+            {formatDate(complaint.latestAssessment.assessedAt)}
+          </strong>
+        </div>
+      </div>
+
+      <small className="assessment-note">
+        This assessment is an initial screening aid, not a verified
+        food-safety determination. The assigned officer must review
+        the complaint and available evidence.
+      </small>
+    </>
+  )}
+</div>
 
                       <div className="officer-review-actions">
                         <button
@@ -802,13 +932,13 @@ export default function OfficerDashboard() {
         >
           {riskInsightOpenId === complaint.id
             ? 'Hide Risk Insight'
-            : 'Generate Risk Insight'}
+            : 'View Screening Insights'}
         </button>
       </div>
 
       {riskInsightOpenId === complaint.id && (
         <section className="officer-assessment">
-          <h4>Complaint Risk Insight</h4>
+          <h4>Complaint Screening Insights</h4>
 
           <p>
             <strong>Screening priority:</strong>{' '}
@@ -842,7 +972,7 @@ export default function OfficerDashboard() {
             </p>
           )}
 
-          <strong>Suggested next action:</strong>
+          <strong>Suggested officer action:</strong>
 
           <p>
             {complaint.latestTriage.actionability === 'NEEDS_INFORMATION'
@@ -866,9 +996,8 @@ export default function OfficerDashboard() {
   )}
 </div>
                           <p>
-                            <strong>Review reminder:</strong> An experimental
-                            AI risk category is advisory only and is not an
-                            official finding.
+                            <strong>Review reminder:</strong> The provisional screening
+result is advisory only and is not an official finding.
                           </p>
                           <p className="officer-review-note">
                             This view does not save a review decision.
@@ -898,52 +1027,6 @@ export default function OfficerDashboard() {
                         </p>
                       )}
 
-                      <div className="officer-assessment">
-                        <h4>Latest recorded risk assessment</h4>
-
-                        {!complaint.latestAssessment ? (
-                          <p>
-                            No risk assessment is recorded for this complaint.
-                          </p>
-                        ) : (
-                          <>
-                          <p>
-  <strong>Assessment engine:</strong>{' '}
-  {complaint.latestAssessment.modelVersions?.engine === 'RULE_BASED'
-    ? 'Rule-based provisional screening'
-    : complaint.latestAssessment.modelVersions?.modelType
-      ? `Experimental ML (${complaint.latestAssessment.modelVersions.modelType})`
-      : 'Unspecified'}
-</p>
-                            <p>
-                              <strong>Provisional category:</strong>{' '}
-                              {complaint.latestAssessment.riskLevel || 'Unavailable'}
-                            </p>
-                            <p>
-                              <strong>Assessment status:</strong>{' '}
-                              {complaint.latestAssessment.status}
-                            </p>
-                            <p>
-                              <strong>Evidence quality:</strong>{' '}
-                              {complaint.latestAssessment.evidenceQuality}
-                            </p>
-                            <p>
-                              <strong>Human review required:</strong>{' '}
-                              {complaint.latestAssessment.humanReviewRequired
-                                ? 'Yes'
-                                : 'Not indicated'}
-                            </p>
-                            <p>
-                              <strong>Recorded:</strong>{' '}
-                              {formatDate(complaint.latestAssessment.assessedAt)}
-                            </p>
-                            <small>
-                              This is a recorded assessment, not a verified
-                              food-safety determination.
-                            </small>
-                          </>
-                        )}
-                      </div>
                     </article>
                   ))}
                 </div>
@@ -1009,7 +1092,7 @@ export default function OfficerDashboard() {
         <div>
           <span className="analytics-eyebrow">PERFORMANCE OVERVIEW</span>
           <h2>Complaint Analytics</h2>
-          <p>Understand complaint volume, review priorities and reported patterns.</p>
+          <p>Overview of all recorded complaints, their review priorities and reported details.</p>
         </div>
         <span className="analytics-record-count">{total} Reports</span>
       </div>

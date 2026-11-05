@@ -1,8 +1,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import imageCompression from "browser-image-compression";
+import { LayoutDashboard, Plus, ClipboardList, LogOut, ChevronDown, FileText, Clock, CheckCircle, Search, X } from "lucide-react";
 
 
 type ComplaintStatus = "Submitted" | "Under Review" | "Resolved";
@@ -62,6 +63,7 @@ type BackendComplaint = {
   imageUrls?: BackendPhoto[] | BackendPhoto | null;
   photoUrls?: BackendPhoto[] | BackendPhoto | null;
   images?: BackendPhoto[] | BackendPhoto | null;
+
   [key: string]: unknown;
 };
 
@@ -392,7 +394,7 @@ const referenceId =
   createdAt: formatDate(item.createdAt),
   photos: extractPhotos(item),
   establishmentName: item.establishmentName || "",
-  incidentDate: dateInputValue(item.incidentDate),
+incidentDate: dateInputValue(item.incidentDate),
 };
 }
 
@@ -686,7 +688,7 @@ export default function CitizenDashboard() {
     } catch (error) {
       console.error("Photo compression failed:", error);
       setPhotoError(
-        "Unable to compress or load photos. Please try smaller JPG, PNG or WebP images.",
+        "Photo compression failed. Please try another image.",
       );
     }
   };
@@ -776,7 +778,7 @@ export default function CitizenDashboard() {
       resetComplaintForm();
 
       showNotice(
-        `Complaint ${savedComplaint.id} submitted successfully.`,
+        `Complaint submitted successfully.`,
         "success",
       );
     } catch (error) {
@@ -826,19 +828,19 @@ export default function CitizenDashboard() {
               className={activeSection === "dashboard" ? "active" : ""}
               onClick={() => goToSection("dashboard")}
             >
-              <span className="cd-nav-icon">⌂</span> Dashboard
+              <span className="cd-nav-icon"><LayoutDashboard size={18} strokeWidth={2} /></span> Dashboard
             </button>
             <button
               className={activeSection === "report" ? "active" : ""}
               onClick={() => goToSection("report")}
             >
-              <span className="cd-nav-icon">＋</span> Report a concern
+              <Plus size={16} /> Report a concern
             </button>
             <button
               className={activeSection === "complaints" ? "active" : ""}
               onClick={() => goToSection("complaints")}
             >
-              <span className="cd-nav-icon">▤</span> My complaints
+              <span className="cd-nav-icon"><ClipboardList size={18} strokeWidth={2} /></span> My complaints
             </button>
           </nav>
 
@@ -847,7 +849,7 @@ export default function CitizenDashboard() {
               Help make food safer. Record a food-safety concern to support
               quicker action.
             </p>
-            <button onClick={handleLogout}>↪ Sign out</button>
+            <button onClick={handleLogout}><LogOut size={16} /> Sign out</button>
           </div>
         </aside>
 
@@ -870,7 +872,7 @@ export default function CitizenDashboard() {
                     <span className="cd-profile-name">{profile.name}</span>
                     <span className="cd-profile-role">Citizen</span>
                   </span>
-                  <span className="cd-chevron">⌄</span>
+                  <span className="cd-chevron"><ChevronDown size={16} /></span>
                 </button>
 
                 {profileMenuOpen && (
@@ -908,7 +910,7 @@ export default function CitizenDashboard() {
                 className="cd-button cd-button-primary"
                 onClick={() => goToSection("report")}
               >
-                ＋ Report a concern
+                <Plus size={16} /> Report a concern
               </button>
             </section>
 
@@ -925,19 +927,19 @@ export default function CitizenDashboard() {
                     label="Total reports recorded"
                     value={complaints.length}
                     foot={loadingComplaints ? "Loading records..." : "Saved reports"}
-                    icon="▤"
+                    icon={<FileText size={19} strokeWidth={2} />}
                   />
                   <Stat
                     label="Under review"
                     value={reviewCount}
                     foot="Awaiting review"
-                    icon="◷"
+                    icon={<Clock size={19} strokeWidth={2} />}
                   />
                   <Stat
                     label="Resolved reports"
                     value={resolvedCount}
                     foot="Marked as resolved"
-                    icon="✓"
+                    icon={<CheckCircle size={19} strokeWidth={2} />}
                   />
                 </section>
 
@@ -1093,7 +1095,7 @@ export default function CitizenDashboard() {
                           Add photos of the concern
                         </p>
                         <p className="cd-help">
-                          JPG, PNG or WebP · Maximum 5 photos · 10 MB per original photo
+                          Accepted formats: JPG, PNG and WebP. Up to 5 photos, 10 MB each.
                         </p>
                         <input
                           ref={photoInputRef}
@@ -1122,7 +1124,7 @@ export default function CitizenDashboard() {
                                   aria-label={`Remove photo ${index + 1}`}
                                   disabled={submittingComplaint}
                                 >
-                                  ×
+                                  <X size={18} />
                                 </button>
                               </div>
                             ))}
@@ -1150,7 +1152,7 @@ export default function CitizenDashboard() {
                       className="cd-button cd-button-primary"
                       disabled={submittingComplaint}
                     >
-                      {submittingComplaint ? "Submitting..." : "Submit Complaint →"}
+                      {submittingComplaint ? "Submitting..." : "Submit complaint"}
                     </button>
                   </div>
                 </form>
@@ -1174,13 +1176,13 @@ export default function CitizenDashboard() {
                     className="cd-button cd-button-primary"
                     onClick={() => goToSection("report")}
                   >
-                    ＋ New complaint
+                    <Plus size={16} /> New complaint
                   </button>
                 </div>
 
                 <div className="cd-toolbar">
                   <div className="cd-search">
-                    <span className="cd-search-icon">⌕</span>
+                    <span className="cd-search-icon"><Search size={17} /></span>
                     <input
                       className="cd-input"
                       value={search}
@@ -1266,7 +1268,7 @@ export default function CitizenDashboard() {
                 }}
                 aria-label="Close profile"
               >
-                ×
+                <X size={18} />
               </button>
             </div>
 
@@ -1406,7 +1408,7 @@ export default function CitizenDashboard() {
                 onClick={() => setSelectedComplaint(null)}
                 aria-label="Close complaint details"
               >
-                ×
+                <X size={18} />
               </button>
             </div>
 
@@ -1434,8 +1436,7 @@ export default function CitizenDashboard() {
                 />
                 <Detail label="Date recorded" value={selectedComplaint.createdAt} />
               </div>
-
-              <div className="cd-detail-description">
+<div className="cd-detail-description">
                 <h3>Description</h3>
                 <p>{selectedComplaint.description || "No description provided."}</p>
               </div>
@@ -1491,7 +1492,7 @@ function Stat({
   label: string;
   value: number;
   foot: string;
-  icon: string;
+  icon: ReactNode;
 }) {
   return (
     <div className="cd-stat">
@@ -1543,7 +1544,7 @@ function ComplaintTable({
   if (!complaints.length) {
     return (
       <div className="cd-empty">
-        <div className="cd-empty-icon">▤</div>
+        <div className="cd-empty-icon"><ClipboardList size={23} /></div>
         <h3>{emptyTitle}</h3>
         <p>{emptyDescription}</p>
         {showCreateButton && (
@@ -1551,7 +1552,7 @@ function ComplaintTable({
             className="cd-button cd-button-primary"
             onClick={onCreate}
           >
-            ＋ Report a concern
+            <Plus size={16} /> Report a concern
           </button>
         )}
       </div>

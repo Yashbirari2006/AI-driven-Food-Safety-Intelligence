@@ -4,6 +4,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import complaintRoutes from "./routes/complaintRoutes";
 import aiRoutes from "./routes/aiRoutes";
+import inspectionMeasurementRoutes from "./routes/inspectionMeasurementRoutes";
 import path from "path";
 
 import {
@@ -47,6 +48,7 @@ app.get(
 app.use("/api/auth", authRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/inspections", inspectionMeasurementRoutes);
 const PORT = 5000;
 
 app.listen(PORT, () => {
